@@ -5,7 +5,7 @@ ARG PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 # ------------------------------
 # Base stage: Contains only the minimal dependencies required for runtime
 # (node_modules and Playwright system dependencies)
-FROM node:22-bookworm-slim AS base
+FROM registry.cn-hangzhou.aliyuncs.com/yuanzw/node:24.15.0-trixie-slim AS base
 
 ARG PLAYWRIGHT_BROWSERS_PATH
 ENV PLAYWRIGHT_BROWSERS_PATH=${PLAYWRIGHT_BROWSERS_PATH}
@@ -31,7 +31,7 @@ RUN --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-cache \
   npm ci
 
 # Copy the rest of the app
-COPY *.json *.js *.ts .
+COPY *.json *.js *.ts ./
 
 # ------------------------------
 # Browser
@@ -49,19 +49,13 @@ RUN npx -y playwright-core install --no-shell chromium
 FROM base
 
 ARG PLAYWRIGHT_BROWSERS_PATH
-ARG USERNAME=node
 ENV NODE_ENV=production
 
-# Set the correct ownership for the runtime user on production `node_modules`
-RUN chown -R ${USERNAME}:${USERNAME} node_modules
-
-USER ${USERNAME}
-
-COPY --from=browser --chown=${USERNAME}:${USERNAME} ${PLAYWRIGHT_BROWSERS_PATH} ${PLAYWRIGHT_BROWSERS_PATH}
-COPY --chown=${USERNAME}:${USERNAME} cli.js package.json ./
+COPY --from=browser ${PLAYWRIGHT_BROWSERS_PATH} ${PLAYWRIGHT_BROWSERS_PATH}
+COPY cli.js package.json ./
 
 # Current working directory must be writable as MCP may need to create default output dir in it.
-WORKDIR /home/${USERNAME}
+WORKDIR /root
 
 # Run in headless and only with chromium (other browsers need more dependencies not included in this image)
 ENTRYPOINT ["node", "/app/cli.js", "--headless", "--browser", "chromium", "--no-sandbox"]
